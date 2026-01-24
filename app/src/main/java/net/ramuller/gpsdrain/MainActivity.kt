@@ -35,6 +35,8 @@ import androidx.compose.ui.unit.dp
 import net.ramuller.gpsdrain.ui.theme.GPSDrainTheme
 import androidx.compose.runtime.*             // ✅ for remember, mutableStateOf, by
 import androidx.compose.foundation.layout.*   // ✅ for Column, Modifier, padding, etc.
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*           // ✅ for OutlinedTextField, Button, Text
@@ -86,9 +88,10 @@ fun GPSDrain(context: Context = LocalContext.current) {
     val prefs = context.getSharedPreferences("gps_drain_config", Context.MODE_PRIVATE)
 
     var portText by remember { mutableStateOf(prefs.getInt("port", 2768).toString()) }
-    var startOctetText by remember { mutableStateOf(prefs.getInt("startOctet", 113).toString()) }
+    var startOctetText by remember { mutableStateOf(prefs.getInt("startOctet", 119).toString()) }
     var endOctetText by remember { mutableStateOf(prefs.getInt("endOctet", 128).toString()) }
     var subnetPrefix by remember { mutableStateOf("10.168.231") }
+    var serviceRunning by remember { mutableStateOf(false) }
     // Logging
     val context = LocalContext.current
     val logMessages = remember { mutableStateListOf<String>() }
@@ -96,8 +99,10 @@ fun GPSDrain(context: Context = LocalContext.current) {
     DisposableEffect(Unit) {
         val receiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
-                val msg = intent?.getStringExtra(LOG_EXTRA) ?: return
-                logMessages.add(msg)
+                val msg = intent?.getStringExtra(LOG_EXTRA)
+                if (msg != null) {
+                    logMessages.add(msg)
+                }
             }
         }
         val manager = LocalBroadcastManager.getInstance(context)
@@ -107,15 +112,13 @@ fun GPSDrain(context: Context = LocalContext.current) {
             manager.unregisterReceiver(receiver)
         }
     }
-    Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-       logMessages.forEach { Text(it, style = MaterialTheme.typography.bodySmall) }
-    }
+
     // Detect subnet prefix on first launch
     LaunchedEffect(Unit) {
         subnetPrefix = getLocalSubnetPrefix()
     }
 
-    Column(modifier = Modifier.fillMaxSize().padding(12.dp)) {
+/*    Column(modifier = Modifier.fillMaxSize().padding(12.dp)) {
         // Log Area
         Column(
             modifier = Modifier
@@ -127,6 +130,30 @@ fun GPSDrain(context: Context = LocalContext.current) {
         ) {
             Text("Log Output:", style = MaterialTheme.typography.titleMedium)
             logMessages.forEach { Text(it, style = MaterialTheme.typography.bodySmall) }
+        }*/
+
+
+    val listState = rememberLazyListState()
+
+    LaunchedEffect(logMessages.size) {
+        listState.animateScrollToItem(logMessages.size)
+    }
+
+    Column(modifier = Modifier.fillMaxSize().padding(12.dp)) {
+        LazyColumn(
+            state = listState,
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .padding(8.dp)
+        ) {
+            item {
+                Text("Log Output:", style = MaterialTheme.typography.titleMedium)
+            }
+            items(logMessages.size) { index ->
+                Text(logMessages[index], style = MaterialTheme.typography.bodySmall)
+            }
         }
 
         Spacer(modifier = Modifier.height(8.dp))
@@ -172,20 +199,37 @@ fun GPSDrain(context: Context = LocalContext.current) {
                     val port = portText.toIntOrNull()
                     val startOctet = startOctetText.toIntOrNull()
                     val endOctet = endOctetText.toIntOrNull()
-                    sendLog(context, "Save & scan tapped")
+
+                    sendLog(context, "Start/Stop tapped")
+                    val intent = Intent(context, GpsClientService::class.java)
                     if (port != null && startOctet != null && endOctet != null &&
                         port in 1..65535 && startOctet in 1..254 && endOctet in 1..254 && startOctet <= endOctet
                     ) {
-                        prefs.edit()
-                            .putInt("port", port)
-                            .putInt("startOctet", startOctet)
-                            .putInt("endOctet", endOctet)
-                            .apply()
+                        sendLog(context, "In start stop" + serviceRunning)
+                        if (serviceRunning) {
+                            sendLog(context, "Stopping GpsClientService")
+                            val intent = Intent(context, GpsClientService::class.java)
+                            context.stopService(intent)
+                            serviceRunning = false
+                        } else {
+                            sendLog(context, "Starting GpsClientService")
+                            prefs.edit()
+                                .putInt("port", port)
+                                .putInt("startOctet", startOctet)
+                                .putInt("endOctet", endOctet)
+                                .apply()
 
-                        // logMessages = logMessages + "✅ Port: $port | Range: $subnetPrefix.$startOctet to $subnetPrefix.$endOctet"
-                        // TODO: Start scanning here
-                        val intent = Intent(context, GpsClientService::class.java)
-                        context.startForegroundService(intent)
+                            // logMessages = logMessages + "✅ Port: $port | Range: $subnetPrefix.$startOctet to $subnetPrefix.$endOctet"
+                            intent.apply {
+                                putExtra("port", port)
+                                putExtra("startOctet", startOctet)
+                                putExtra("endOctet", endOctet)
+                                putExtra("subnet", subnetPrefix)
+                            }
+                            // TODO: Start scanning here
+                            context.startForegroundService(intent)
+                            serviceRunning = true
+                        }
                     } else {
                         // logMessages = logMessages + "❌ Invalid input"
                     }
@@ -194,7 +238,9 @@ fun GPSDrain(context: Context = LocalContext.current) {
                     .padding(top = 8.dp)
                     .fillMaxWidth()
             ) {
-                Text("Start/Stop")
+                Text(if (serviceRunning) "Stop" else "Start")
+                // Text("Start/Stop")
+
             }
         }
     }

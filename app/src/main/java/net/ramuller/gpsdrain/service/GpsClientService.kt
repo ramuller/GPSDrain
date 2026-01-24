@@ -44,7 +44,7 @@ class GpsClientService : Service() {
         sendLog(applicationContext, "GpsClientService started")
 
         val port = intent?.getIntExtra("port", 2768) ?: 2768
-        val start = intent?.getIntExtra("startOctet", 112) ?: 112
+        val start = intent?.getIntExtra("startOctet", 100) ?: 100
         val end = intent?.getIntExtra("endOctet", 128) ?: 128
         val subnet = intent?.getStringExtra("subnet") ?: "192.168.231"
 
@@ -114,6 +114,8 @@ class GpsClientService : Service() {
             }
         }
     override fun onDestroy() {
+        sendLog(applicationContext, "GpsClientService stopping")
+        stopForeground(true) // removes notification
         isRunning = false
         super.onDestroy()
     }

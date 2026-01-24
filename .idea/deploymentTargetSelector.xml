@@ -4,10 +4,10 @@
     <selectionStates>
       <SelectionState runConfigName="GPSDrain">
         <option name="selectionMode" value="DROPDOWN" />
-        <DropdownSelection timestamp="2025-12-06T11:53:05.986099827Z">
+        <DropdownSelection timestamp="2026-01-24T18:38:57.334074803Z">
           <Target type="DEFAULT_BOOT">
             <handle>
-              <DeviceId pluginId="PhysicalDevice" identifier="serial=R58N648E8EX" />
+              <DeviceId pluginId="PhysicalDevice" identifier="serial=ce12160c4dac273705" />
             </handle>
           </Target>
         </DropdownSelection>
