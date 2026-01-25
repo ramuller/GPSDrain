@@ -6,8 +6,13 @@ import android.app.NotificationManager
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.location.Criteria
+import android.location.Location
+import android.location.LocationManager
+import android.location.provider.ProviderProperties
 import android.os.Build
 import android.os.IBinder
+import android.os.SystemClock
 import androidx.core.app.NotificationCompat
 import com.ramuller.gpsdrain.util.sendLog
 import kotlinx.coroutines.CoroutineScope
@@ -21,6 +26,7 @@ import java.io.InputStreamReader
 import java.io.PrintWriter
 import java.net.InetSocketAddress
 import java.net.Socket
+
 
 
 class GpsClientService : Service() {
@@ -104,7 +110,17 @@ class GpsClientService : Service() {
                 try {
                     writer.println("Give me GPS")
                     val response = reader.readLine()
-                    sendLog(applicationContext, "📍 GPS: $response")
+                    val tmp = response.split(":")[1]
+                    val coords = tmp.split(",")
+                    if (coords.size == 2) {
+                        val lat = coords[0].toDoubleOrNull()
+                        val lon = coords[1].toDoubleOrNull()
+                        if (lat != null && lon != null) {
+                            mockLocation(lat, lon)
+                        }
+                    }
+                    sendLog(applicationContext, "📍 GPS: $coords")
+
                     delay(1000)
                 } catch (e: Exception) {
                     sendLog(applicationContext, "❌ Lost connection: ${e.message}")
@@ -118,5 +134,62 @@ class GpsClientService : Service() {
         stopForeground(true) // removes notification
         isRunning = false
         super.onDestroy()
+    }
+
+   fun mockLocation(lat: Double, lon: Double) {
+       val provider = LocationManager.GPS_PROVIDER
+       val locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
+
+       try {
+           try {
+               locationManager.removeTestProvider(provider)
+           } catch (_: Exception) {}
+
+           if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+               // ✅ Android 12+ — use new ProviderProperties API
+               val props = ProviderProperties.Builder()
+                   .setAccuracy(ProviderProperties.ACCURACY_FINE)
+                   .setPowerUsage(ProviderProperties.POWER_USAGE_LOW)
+                   // .setSupportsAltitude(true)
+                   // .setSupportsSpeed(true)
+                   // .setSupportsBearing(true)
+                   .build()
+
+               locationManager.addTestProvider(provider, props, emptySet())
+           } else {
+               // ✅ Android 9–11 — use legacy addTestProvider
+               locationManager.addTestProvider(
+                   provider,
+                   /* requiresNetwork */ false,
+                   /* requiresSatellite */ false,
+                   /* requiresCell */ false,
+                   /* hasMonetaryCost */ false,
+                   /* supportsAltitude */ true,
+                   /* supportsSpeed */ true,
+                   /* supportsBearing */ true,
+                   /* powerRequirement */ Criteria.POWER_LOW,
+                   /* accuracy */ Criteria.ACCURACY_FINE
+               )
+           }
+
+           locationManager.setTestProviderEnabled(provider, true)
+
+           val mockLocation = Location(provider).apply {
+               latitude = lat
+               longitude = lon
+               accuracy = 1.0f
+               time = System.currentTimeMillis()
+               elapsedRealtimeNanos = SystemClock.elapsedRealtimeNanos()
+           }
+
+           locationManager.setTestProviderLocation(provider, mockLocation)
+
+           sendLog(applicationContext, "📍 Mocked: $lat, $lon")
+
+         } catch (e: SecurityException) {
+            sendLog(applicationContext, "❌ Mocking failed: ${e.message}")
+         } catch (e: Exception) {
+           sendLog(applicationContext, "❌ Error mocking: ${e.message}")
+         }
     }
 }

@@ -1,5 +1,6 @@
 package net.ramuller.gpsdrain
 
+import android.Manifest
 import android.R.attr.port
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -10,6 +11,7 @@ import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -41,6 +43,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*           // ✅ for OutlinedTextField, Button, Text
 import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat.startForegroundService
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.ramuller.gpsdrain.util.LOG_ACTION
 import com.ramuller.gpsdrain.util.LOG_EXTRA
@@ -48,11 +51,29 @@ import com.ramuller.gpsdrain.util.sendLog
 import java.net.NetworkInterface
 import java.net.Inet4Address
 
+//private val locationPermissionLauncher =
+//    registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
+//        val granted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
+//                permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true
+//
+//        if (granted) {
+//            startGpsService()
+//        } else {
+//            Log.e("GPSDrain", "Location permission denied")
+//        }
+//    }
+//
+//fun startGpsService() {
+//    val intent = Intent(this, GpsClientService::class.java)
+//    startForegroundService(intent)
+//}
+
+
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-
+        // requestLocationPermission()
         setContent {
             GPSDrainTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
@@ -64,6 +85,15 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
+
+//fun requestLocationPermission() {
+//    locationPermissionLauncher.launch(
+//        arrayOf(
+//            Manifest.permission.ACCESS_FINE_LOCATION,
+//            Manifest.permission.ACCESS_COARSE_LOCATION
+//        )
+//    )
+//}
 
 fun getLocalSubnetPrefix(): String {
     return try {
@@ -117,21 +147,6 @@ fun GPSDrain(context: Context = LocalContext.current) {
     LaunchedEffect(Unit) {
         subnetPrefix = getLocalSubnetPrefix()
     }
-
-/*    Column(modifier = Modifier.fillMaxSize().padding(12.dp)) {
-        // Log Area
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
-                .background(MaterialTheme.colorScheme.surfaceVariant)
-                .padding(8.dp)
-        ) {
-            Text("Log Output:", style = MaterialTheme.typography.titleMedium)
-            logMessages.forEach { Text(it, style = MaterialTheme.typography.bodySmall) }
-        }*/
-
 
     val listState = rememberLazyListState()
 
