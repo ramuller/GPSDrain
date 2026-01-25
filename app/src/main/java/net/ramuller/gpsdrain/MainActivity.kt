@@ -39,10 +39,12 @@ import androidx.compose.runtime.*             // ✅ for remember, mutableStateO
 import androidx.compose.foundation.layout.*   // ✅ for Column, Modifier, padding, etc.
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*           // ✅ for OutlinedTextField, Button, Text
 import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
 import androidx.core.content.ContextCompat.startForegroundService
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.ramuller.gpsdrain.util.LOG_ACTION
@@ -50,50 +52,54 @@ import com.ramuller.gpsdrain.util.LOG_EXTRA
 import com.ramuller.gpsdrain.util.sendLog
 import java.net.NetworkInterface
 import java.net.Inet4Address
-
-//private val locationPermissionLauncher =
-//    registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
-//        val granted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
-//                permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true
-//
-//        if (granted) {
-//            startGpsService()
-//        } else {
-//            Log.e("GPSDrain", "Location permission denied")
-//        }
-//    }
-//
-//fun startGpsService() {
-//    val intent = Intent(this, GpsClientService::class.java)
-//    startForegroundService(intent)
-//}
+import kotlin.text.get
 
 
 class MainActivity : ComponentActivity() {
+    // private fun startGpsService(context: Context, port: Int, start: Int, end: Int, subnet: String) {
+    fun startGpsService(port: Int, start: Int, end: Int, subnet: String) {
+        val intent = Intent(this, GpsClientService::class.java).apply {
+            putExtra("port", port)
+            putExtra("startOctet", start)
+            putExtra("endOctet", end)
+            putExtra("subnet", subnet)
+        }
+        startForegroundService(intent)
+    }
+
+    private fun stopGpsService() {
+        val intent = Intent(this, GpsClientService::class.java)
+        stopService(intent)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        // requestLocationPermission()
         setContent {
             GPSDrainTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     GPSDrain(
-
+                        onStartClicked = { port, start, end, subnet ->
+                            startGpsService(port, start, end, subnet)
+                        },
+                        onStopClicked = {
+                            stopGpsService()
+                        }
                     )
                 }
             }
         }
     }
-}
 
-//fun requestLocationPermission() {
-//    locationPermissionLauncher.launch(
-//        arrayOf(
-//            Manifest.permission.ACCESS_FINE_LOCATION,
-//            Manifest.permission.ACCESS_COARSE_LOCATION
+//    fun requestLocationPermission() {
+//        locationPermissionLauncher.launch(
+//            arrayOf(
+//                Manifest.permission.ACCESS_FINE_LOCATION,
+//                Manifest.permission.ACCESS_COARSE_LOCATION
+//            )
 //        )
-//    )
-//}
+//    }
+}
 
 fun getLocalSubnetPrefix(): String {
     return try {
@@ -114,7 +120,10 @@ fun getLocalSubnetPrefix(): String {
 }
 
 @Composable
-fun GPSDrain(context: Context = LocalContext.current) {
+fun GPSDrain(context: Context = LocalContext.current,
+            onStartClicked: (Int, Int, Int, String) -> Unit,
+            onStopClicked: () -> Unit
+) {
     val prefs = context.getSharedPreferences("gps_drain_config", Context.MODE_PRIVATE)
 
     var portText by remember { mutableStateOf(prefs.getInt("port", 2768).toString()) }
@@ -125,6 +134,27 @@ fun GPSDrain(context: Context = LocalContext.current) {
     // Logging
     val context = LocalContext.current
     val logMessages = remember { mutableStateListOf<String>() }
+
+    val pendingStartParams = remember {
+        mutableStateOf<Triple<Int, Pair<Int, Int>, String>?>(null)
+    }
+    val pendingIntentParams = remember {
+        mutableStateOf<Intent?>(null)
+    }
+    val locationPermissionLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
+            val granted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
+                    permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true
+
+            if (granted) {
+                pendingIntentParams.value?.let { intent ->
+                    context.startForegroundService(intent)
+                    sendLog(context, "Started GPS service")
+                }
+            } else {
+                sendLog(context, "Permission denied")
+            }
+        }
 
     DisposableEffect(Unit) {
         val receiver = object : BroadcastReceiver() {
@@ -216,15 +246,14 @@ fun GPSDrain(context: Context = LocalContext.current) {
                     val endOctet = endOctetText.toIntOrNull()
 
                     sendLog(context, "Start/Stop tapped")
-                    val intent = Intent(context, GpsClientService::class.java)
+                    // val intent = Intent(context, GpsClientService::class.java)
                     if (port != null && startOctet != null && endOctet != null &&
                         port in 1..65535 && startOctet in 1..254 && endOctet in 1..254 && startOctet <= endOctet
                     ) {
                         sendLog(context, "In start stop" + serviceRunning)
                         if (serviceRunning) {
                             sendLog(context, "Stopping GpsClientService")
-                            val intent = Intent(context, GpsClientService::class.java)
-                            context.stopService(intent)
+                            onStopClicked()
                             serviceRunning = false
                         } else {
                             sendLog(context, "Starting GpsClientService")
@@ -234,15 +263,23 @@ fun GPSDrain(context: Context = LocalContext.current) {
                                 .putInt("endOctet", endOctet)
                                 .apply()
 
+//                            val intent = Intent(context, GpsClientService::class.java).apply {
+//                                putExtra("port", port)
+//                                putExtra("startOctet", startOctet)
+//                                putExtra("endOctet", endOctet)
+//                                putExtra("subnet", subnetPrefix)
+//                            }
+
+//                            pendingIntentParams.value = intent
+
+                            locationPermissionLauncher.launch(
+                                arrayOf(
+                                    Manifest.permission.ACCESS_FINE_LOCATION,
+                                    Manifest.permission.ACCESS_COARSE_LOCATION
+                                )
+                            )
+                            onStartClicked(port, startOctet, endOctet, subnetPrefix)
                             // logMessages = logMessages + "✅ Port: $port | Range: $subnetPrefix.$startOctet to $subnetPrefix.$endOctet"
-                            intent.apply {
-                                putExtra("port", port)
-                                putExtra("startOctet", startOctet)
-                                putExtra("endOctet", endOctet)
-                                putExtra("subnet", subnetPrefix)
-                            }
-                            // TODO: Start scanning here
-                            context.startForegroundService(intent)
                             serviceRunning = true
                         }
                     } else {
@@ -268,6 +305,9 @@ private fun Intent.getStringExtra(value: Any) {}
 @Composable
 fun GPSDrainPreview() {
     GPSDrainTheme {
-        GPSDrain()
+        GPSDrain(
+            onStartClicked = { _, _, _, _ -> },
+            onStopClicked = { }
+        )
     }
 }
