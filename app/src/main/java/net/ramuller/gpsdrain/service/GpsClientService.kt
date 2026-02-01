@@ -87,7 +87,7 @@ class GpsClientService : Service() {
             val ip = "$subnet.$i"
             sendLog(applicationContext, "Trying server $ip:$port")
             try {
-                val socket = withTimeoutOrNull(300) {
+                val socket = withTimeoutOrNull(500) {
                     Socket().apply {
                         connect(InetSocketAddress(ip, port),port)
                     }
@@ -97,7 +97,8 @@ class GpsClientService : Service() {
                     pollGps(socket)
                     return // exit loop after first success
                 }
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                sendLog(applicationContext, "Connect failed : ${e.message}")
                 // Ignored
             }
         }
