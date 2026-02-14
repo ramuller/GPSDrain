@@ -1,6 +1,7 @@
 package net.ramuller.gpsdrain
 
 import android.Manifest
+import android.R
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -176,13 +177,17 @@ fun GPSDrain(
     val prefs = context.getSharedPreferences("gps_drain_config", Context.MODE_PRIVATE)
 
     var portText by remember { mutableStateOf(prefs.getInt("port", 2768).toString()) }
-    var startOctetText by remember { mutableStateOf(prefs.getInt("startOctet", 100).toString()) }
+    var startOctetText by remember { mutableStateOf(prefs.getInt("startOctet", 118).toString()) }
     var endOctetText by remember { mutableStateOf(prefs.getInt("endOctet", 129).toString()) }
     var subnetPrefix by remember { mutableStateOf("192.168.231") }
     var subnetPrefixText by remember { mutableStateOf(prefs.getInt("subnetPrefix", 128).toString()) }
     var gpsServiceRunning by remember { mutableStateOf(false) }
 
     val logMessages = remember { mutableStateListOf<String>() }
+
+    var latitude by remember { mutableStateOf("") }
+    var longitude by remember { mutableStateOf("") }
+    var totalReceived by remember { mutableStateOf(0) }
 
     // ✅ Define a pending parameter holder (pick ONE way)
     data class PendingParams(val port: Int, val start: Int, val end: Int, val subnet: String)
@@ -207,27 +212,19 @@ fun GPSDrain(
         }
     }
 
-
-
-//    val locationPermissionLauncher =
-//        rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
-//            val granted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
-//                    permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true
-//
-//            if (granted) {
-//                pendingIntentParams.value?.let { intent ->
-//                    context.startForegroundService(intent)
-//                    sendLog(context, "Started GPS service")
-//                }
-//            } else {
-//                sendLog(context, "Permission denied")
-//            }
-//        }
-
     DisposableEffect(Unit) {
         val receiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
-                val msg = intent?.getStringExtra(LOG_EXTRA)
+                val msg = intent?.getStringExtra(LOG_EXTRA) ?: return
+                if (msg.startsWith("GPS:")) {
+                    val parts = msg.removePrefix("GPS:").split(",")
+                    if (parts.size == 2) {
+                        latitude = parts[0]
+                        longitude = parts[1]
+                        totalReceived++
+                        return
+                    }
+                }
                 if (msg != null) {
                     logMessages.add(msg)
                 }
@@ -291,7 +288,7 @@ fun GPSDrain(
                 OutlinedTextField(
                     value = subnetPrefixText,
                     onValueChange = {
-                        if (it.length <= 3 && it.all { c -> c.isDigit() }) startOctetText = it
+                        if (it.length <= 3 && it.all { c -> c.isDigit() }) subnetPrefixText = it
                     },
                     label = { Text("Subnet prefix") },
                     singleLine = true,
@@ -317,6 +314,36 @@ fun GPSDrain(
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.weight(1f)
+                )
+            }
+
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = totalReceived.toString(),
+                    onValueChange = {}, // read-only
+                    label = { Text("Packages") },
+                    readOnly = true,
+                    modifier = Modifier
+                        .weight(25f)
+                        .padding(vertical = 4.dp)
+                )
+                OutlinedTextField(
+                    value = latitude,
+                    onValueChange = {}, // read-only
+                    label = { Text("Latitude") },
+                    readOnly = true,
+                    modifier = Modifier
+                        .weight(40f)
+                        .padding(vertical = 4.dp)
+                )
+                OutlinedTextField(
+                    value = longitude,
+                    onValueChange = {}, // read-only
+                    label = { Text("Longitude") },
+                    readOnly = true,
+                    modifier = Modifier
+                        .weight(40f)
+                        .padding(vertical = 4.dp)
                 )
             }
 

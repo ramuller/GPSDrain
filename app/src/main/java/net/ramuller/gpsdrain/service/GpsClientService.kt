@@ -50,7 +50,7 @@ class GpsClientService : Service() {
         sendLog(applicationContext, "GpsClientService started")
 
         val port = intent?.getIntExtra("port", 2768) ?: 2768
-        val start = intent?.getIntExtra("startOctet", 100) ?: 100
+        val start = intent?.getIntExtra("startOctet", 118) ?: 118
         val end = intent?.getIntExtra("endOctet", 128) ?: 128
         val subnet = intent?.getStringExtra("subnet") ?: "192.168.231"
 
@@ -92,7 +92,8 @@ class GpsClientService : Service() {
                         connect(InetSocketAddress(ip, port),port)
                     }
                 }
-                if (socket != null) {
+                if (socket
+!= null) {
                     sendLog(applicationContext, "✅ Found GPS Server at $ip:$port")
                     pollGps(socket)
                     return // exit loop after first success
@@ -119,10 +120,12 @@ class GpsClientService : Service() {
                         if (lat != null && lon != null) {
                             mockLocation(lat, lon)
                         }
+                        sendLog(applicationContext, "GPS:$lat,$lon")
+                    } else {
+                        sendLog(applicationContext, "Something else $response")
                     }
-                    sendLog(applicationContext, "📍 GPS: $coords")
 
-                    delay(1000)
+                    delay(100)
                 } catch (e: Exception) {
                     sendLog(applicationContext, "❌ Lost connection: ${e.message}")
                     socket.close()
@@ -185,7 +188,7 @@ class GpsClientService : Service() {
 
            locationManager.setTestProviderLocation(provider, mockLocation)
 
-           sendLog(applicationContext, "📍 Mocked: $lat, $lon")
+           sendLog(applicationContext, "GPS:$lat,$lon")
 
          } catch (e: SecurityException) {
             sendLog(applicationContext, "❌ Mocking failed: ${e.message}")
