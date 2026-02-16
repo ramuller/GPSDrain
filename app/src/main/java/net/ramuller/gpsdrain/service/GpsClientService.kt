@@ -32,7 +32,9 @@ import java.net.Socket
 class GpsClientService : Service() {
 
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+
     private var isRunning = false
+    private var serverIP = ""
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -83,19 +85,42 @@ class GpsClientService : Service() {
     }
 
     private suspend fun discoverAndPoll(subnet: String, start: Int, end: Int, port: Int) {
+        var socket: Socket? = null
+
         for (i in start..end) {
             val ip = "$subnet.$i"
             sendLog(applicationContext, "Trying server $ip:$port")
             try {
-                val socket = withTimeoutOrNull(500) {
+                socket = withTimeoutOrNull(500) {
                     Socket().apply {
                         connect(InetSocketAddress(ip, port),port)
                     }
                 }
-                if (socket
-!= null) {
+                if (socket != null) {
+                    socket.soTimeout = 1000
                     sendLog(applicationContext, "✅ Found GPS Server at $ip:$port")
-                    pollGps(socket)
+                    while (pollGps(socket) != 0) {
+                        var disconnected = true
+                        while (isRunning && disconnected) {
+                            try {
+                                sendLog(applicationContext, "pollGPS had an error try reconnect")
+                                socket = withTimeoutOrNull(500) {
+                                    Socket().apply {
+                                        connect(InetSocketAddress(ip, port), port)
+                                    }
+                                }
+                                if (socket != null) {
+                                    socket.soTimeout = 1000
+                                    disconnected = false
+                                    sendLog(applicationContext, "Reconnect succeed")
+                                }
+                            } catch (e: Exception) {
+                                sendLog(applicationContext, "Re-connect failed : ${e.message}")
+                                // Ignored
+                            }
+                        }
+                    }
+                    sendLog(applicationContext, "pollGPS ended normally")
                     return // exit loop after first success
                 }
             } catch (e: Exception) {
@@ -104,10 +129,10 @@ class GpsClientService : Service() {
             }
         }
     }
-    private suspend fun pollGps(socket: Socket) {
-            val writer = PrintWriter(socket.getOutputStream(), true)
-            val reader = BufferedReader(InputStreamReader(socket.getInputStream()))
-
+    private suspend fun pollGps(socket: Socket?) : Int {
+            val writer = PrintWriter(socket?.getOutputStream(), true)
+            val reader = BufferedReader(InputStreamReader(socket?.getInputStream()))
+            sendLog(applicationContext, "Poll started")
             while (isRunning) {
                 try {
                     writer.println("Give me GPS")
@@ -124,14 +149,17 @@ class GpsClientService : Service() {
                     } else {
                         sendLog(applicationContext, "Something else $response")
                     }
-
-                    delay(100)
+                    sendLog(applicationContext, "Message received")
+                    delay(500)
                 } catch (e: Exception) {
                     sendLog(applicationContext, "❌ Lost connection: ${e.message}")
-                    socket.close()
-                    break
+                    reader.close()
+                    writer.close()
+                    socket?.close()
+                    return(1)
                 }
             }
+            return(0)
         }
     override fun onDestroy() {
         sendLog(applicationContext, "GpsClientService stopping")
