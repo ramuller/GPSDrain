@@ -124,7 +124,8 @@ class GpsClientService : Service() {
                     return // exit loop after first success
                 }
             } catch (e: Exception) {
-                sendLog(applicationContext, "Connect failed : ${e.message}")
+                sendLog(applicationContext, "Failed try next")
+                // sendLog(applicationContext, "Connect failed : ${e.message}")
                 // Ignored
             }
         }
@@ -149,7 +150,7 @@ class GpsClientService : Service() {
                     } else {
                         sendLog(applicationContext, "Something else $response")
                     }
-                    sendLog(applicationContext, "Message received")
+                    // sendLog(applicationContext, "Message received")
                     delay(500)
                 } catch (e: Exception) {
                     sendLog(applicationContext, "❌ Lost connection: ${e.message}")
