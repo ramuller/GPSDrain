@@ -21,6 +21,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
+import com.ramuller.gpsdrain.util.FileLogger
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.io.PrintWriter
@@ -52,8 +53,8 @@ class GpsClientService : Service() {
         sendLog(applicationContext, "GpsClientService started")
 
         val port = intent?.getIntExtra("port", 2768) ?: 2768
-        val start = intent?.getIntExtra("startOctet", 118) ?: 118
-        val end = intent?.getIntExtra("endOctet", 128) ?: 128
+        val start = intent?.getIntExtra("startOctet", 124) ?: 124
+        val end = intent?.getIntExtra("endOctet", 130) ?: 130
         val subnet = intent?.getStringExtra("subnet") ?: "192.168.231"
 
         scope.launch {
@@ -91,26 +92,26 @@ class GpsClientService : Service() {
             val ip = "$subnet.$i"
             sendLog(applicationContext, "Trying server $ip:$port")
             try {
-                socket = withTimeoutOrNull(500) {
+                socket = withTimeoutOrNull(1000) {
                     Socket().apply {
                         connect(InetSocketAddress(ip, port),port)
                     }
                 }
                 if (socket != null) {
-                    socket.soTimeout = 1000
+                    socket.soTimeout = 10000
                     sendLog(applicationContext, "✅ Found GPS Server at $ip:$port")
                     while (pollGps(socket) != 0) {
                         var disconnected = true
                         while (isRunning && disconnected) {
                             try {
                                 sendLog(applicationContext, "pollGPS had an error try reconnect")
-                                socket = withTimeoutOrNull(500) {
+                                socket = withTimeoutOrNull(1500) {
                                     Socket().apply {
                                         connect(InetSocketAddress(ip, port), port)
                                     }
                                 }
                                 if (socket != null) {
-                                    socket.soTimeout = 1000
+                                    socket.soTimeout = 10000
                                     disconnected = false
                                     sendLog(applicationContext, "Reconnect succeed")
                                 }
@@ -151,7 +152,7 @@ class GpsClientService : Service() {
                         sendLog(applicationContext, "Something else $response")
                     }
                     // sendLog(applicationContext, "Message received")
-                    delay(500)
+                    delay(250)
                 } catch (e: Exception) {
                     sendLog(applicationContext, "❌ Lost connection: ${e.message}")
                     reader.close()
@@ -178,8 +179,9 @@ class GpsClientService : Service() {
                locationManager.removeTestProvider(provider)
            } catch (_: Exception) {}
 
-           if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-               // ✅ Android 12+ — use new ProviderProperties API
+           if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && false) {
+               // Android 12+ — use new ProviderProperties API
+               // sendLog(applicationContext, "Androd 12+")
                val props = ProviderProperties.Builder()
                    .setAccuracy(ProviderProperties.ACCURACY_FINE)
                    .setPowerUsage(ProviderProperties.POWER_USAGE_LOW)
@@ -190,7 +192,8 @@ class GpsClientService : Service() {
 
                locationManager.addTestProvider(provider, props, emptySet())
            } else {
-               // ✅ Android 9–11 — use legacy addTestProvider
+               // Android 9–11 — use legacy addTestProvider
+               // sendLog(applicationContext, "Androd -11")
                locationManager.addTestProvider(
                    provider,
                    /* requiresNetwork */ false,
@@ -204,7 +207,7 @@ class GpsClientService : Service() {
                    /* accuracy */ Criteria.ACCURACY_FINE
                )
            }
-
+           FileLogger.log(applicationContext, "$lat,$lon")
            locationManager.setTestProviderEnabled(provider, true)
 
            val mockLocation = Location(provider).apply {

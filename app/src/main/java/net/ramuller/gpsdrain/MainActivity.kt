@@ -56,6 +56,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import androidx.core.content.ContextCompat.startForegroundService
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
+import com.ramuller.gpsdrain.util.FileLogger
 import com.ramuller.gpsdrain.util.LOG_ACTION
 import com.ramuller.gpsdrain.util.LOG_EXTRA
 import com.ramuller.gpsdrain.util.sendLog
@@ -92,6 +93,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         appContext = applicationContext  // Store it globally
         enableEdgeToEdge()
+        FileLogger.timeStamp(appContext, "GPSDrain started")
         setContent {
             GPSDrainTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
@@ -177,7 +179,7 @@ fun GPSDrain(
     val prefs = context.getSharedPreferences("gps_drain_config", Context.MODE_PRIVATE)
 
     var portText by remember { mutableStateOf(prefs.getInt("port", 2768).toString()) }
-    var startOctetText by remember { mutableStateOf(prefs.getInt("startOctet", 118).toString()) }
+    var startOctetText by remember { mutableStateOf(prefs.getInt("startOctet", 124).toString()) }
     var endOctetText by remember { mutableStateOf(prefs.getInt("endOctet", 129).toString()) }
     var subnetPrefix by remember { mutableStateOf("192.168.231") }
     var subnetPrefixText by remember { mutableStateOf(prefs.getInt("subnetPrefix", 128).toString()) }
