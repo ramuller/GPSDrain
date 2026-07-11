@@ -4,10 +4,10 @@
     <selectionStates>
       <SelectionState runConfigName="GPSDrain">
         <option name="selectionMode" value="DROPDOWN" />
-        <DropdownSelection timestamp="2026-07-02T16:15:07.042094660Z">
+        <DropdownSelection timestamp="2026-07-04T10:14:40.240357389Z">
           <Target type="DEFAULT_BOOT">
             <handle>
-              <DeviceId pluginId="PhysicalDevice" identifier="serial=RFCN90BG1NM" />
+              <DeviceId pluginId="PhysicalDevice" identifier="serial=R58M95Q36ZL" />
             </handle>
           </Target>
         </DropdownSelection>
@@ -15,22 +15,7 @@
           <targets>
             <Target type="DEFAULT_BOOT">
               <handle>
-                <DeviceId pluginId="PhysicalDevice" identifier="serial=RFCN90BG1NM" />
-              </handle>
-            </Target>
-            <Target type="DEFAULT_BOOT">
-              <handle>
-                <DeviceId pluginId="PhysicalDevice" identifier="serial=ce0117119076d82a0c" />
-              </handle>
-            </Target>
-            <Target type="DEFAULT_BOOT">
-              <handle>
-                <DeviceId pluginId="PhysicalDevice" identifier="serial=ce11160bc1ce7d1705" />
-              </handle>
-            </Target>
-            <Target type="DEFAULT_BOOT">
-              <handle>
-                <DeviceId pluginId="PhysicalDevice" identifier="serial=ce01182118d5b02a0c" />
+                <DeviceId pluginId="PhysicalDevice" identifier="serial=R58M95Q36ZL" />
               </handle>
             </Target>
             <Target type="DEFAULT_BOOT">
@@ -40,12 +25,27 @@
             </Target>
             <Target type="DEFAULT_BOOT">
               <handle>
-                <DeviceId pluginId="PhysicalDevice" identifier="serial=ce12160c4dac273705" />
+                <DeviceId pluginId="PhysicalDevice" identifier="serial=ce0117119076d82a0c" />
               </handle>
             </Target>
             <Target type="DEFAULT_BOOT">
               <handle>
                 <DeviceId pluginId="PhysicalDevice" identifier="serial=ce091719d290250304" />
+              </handle>
+            </Target>
+            <Target type="DEFAULT_BOOT">
+              <handle>
+                <DeviceId pluginId="PhysicalDevice" identifier="serial=ce01182118d5b02a0c" />
+              </handle>
+            </Target>
+            <Target type="DEFAULT_BOOT">
+              <handle>
+                <DeviceId pluginId="PhysicalDevice" identifier="serial=ce12160c4dac273705" />
+              </handle>
+            </Target>
+            <Target type="DEFAULT_BOOT">
+              <handle>
+                <DeviceId pluginId="PhysicalDevice" identifier="serial=ce11160bc1ce7d1705" />
               </handle>
             </Target>
           </targets>

@@ -13,6 +13,7 @@ import android.location.provider.ProviderProperties
 import android.os.Build
 import android.os.IBinder
 import android.os.SystemClock
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.ramuller.gpsdrain.util.sendLog
 import kotlinx.coroutines.CoroutineScope
@@ -29,6 +30,7 @@ import java.net.InetSocketAddress
 import java.net.Socket
 
 
+private var providerAdded = false
 
 class GpsClientService : Service() {
 
@@ -43,7 +45,9 @@ class GpsClientService : Service() {
         super.onCreate()
         startForeground(1, createNotification())
     }
-
+    companion object {
+        var providerAdded_obs = false
+    }
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (isRunning) {
             return START_STICKY
@@ -152,7 +156,7 @@ class GpsClientService : Service() {
                         sendLog(applicationContext, "Something else $response")
                     }
                     // sendLog(applicationContext, "Message received")
-                    delay(250)
+                    delay(500)
                 } catch (e: Exception) {
                     sendLog(applicationContext, "❌ Lost connection: ${e.message}")
                     reader.close()
@@ -171,61 +175,69 @@ class GpsClientService : Service() {
     }
 
    fun mockLocation(lat: Double, lon: Double) {
-       val provider = LocationManager.GPS_PROVIDER
-       val locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
+        val provider = LocationManager.GPS_PROVIDER
+        val locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
 
-       try {
+        try {
            try {
-               locationManager.removeTestProvider(provider)
+               Log.i("GpsClientService", "Remove testprovider")
+               // locationManager.removeTestProvider(provider)
            } catch (_: Exception) {}
 
-           if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && false) {
-               // Android 12+ — use new ProviderProperties API
-               // sendLog(applicationContext, "Androd 12+")
-               val props = ProviderProperties.Builder()
-                   .setAccuracy(ProviderProperties.ACCURACY_FINE)
-                   .setPowerUsage(ProviderProperties.POWER_USAGE_LOW)
-                   // .setSupportsAltitude(true)
-                   // .setSupportsSpeed(true)
-                   // .setSupportsBearing(true)
-                   .build()
+            if (!providerAdded) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && false) {
+                    // Android 12+ — use new ProviderProperties API
+                    // sendLog(applicationContext, "Androd 12+")
+                    val props = ProviderProperties.Builder()
+                        .setAccuracy(ProviderProperties.ACCURACY_FINE)
+                        .setPowerUsage(ProviderProperties.POWER_USAGE_LOW)
+                        // .setSupportsAltitude(true)
+                        // .setSupportsSpeed(true)
+                        // .setSupportsBearing(true)
+                        .build()
 
-               locationManager.addTestProvider(provider, props, emptySet())
-           } else {
-               // Android 9–11 — use legacy addTestProvider
-               // sendLog(applicationContext, "Androd -11")
-               locationManager.addTestProvider(
-                   provider,
-                   /* requiresNetwork */ false,
-                   /* requiresSatellite */ false,
-                   /* requiresCell */ false,
-                   /* hasMonetaryCost */ false,
-                   /* supportsAltitude */ true,
-                   /* supportsSpeed */ true,
-                   /* supportsBearing */ true,
-                   /* powerRequirement */ Criteria.POWER_LOW,
-                   /* accuracy */ Criteria.ACCURACY_FINE
-               )
-           }
-           FileLogger.log(applicationContext, "$lat,$lon")
-           locationManager.setTestProviderEnabled(provider, true)
+                    locationManager.addTestProvider(provider, props, emptySet())
+                } else {
+                    // Android 9–11 — use legacy addTestProvider
+                    // sendLog(applicationContext, "Androd -11")
+                    locationManager.addTestProvider(
+                        provider,
+                        /* requiresNetwork */ false,
+                        /* requiresSatellite */ false,
+                        /* requiresCell */ false,
+                        /* hasMonetaryCost */ false,
+                        /* supportsAltitude */ true,
+                        /* supportsSpeed */ true,
+                        /* supportsBearing */ true,
+                        /* powerRequirement */ Criteria.POWER_LOW,
+                        /* accuracy */ Criteria.ACCURACY_FINE
+                    )
+                }
+                providerAdded = true
+            }
+                FileLogger.log(applicationContext, "$lat,$lon")
+            locationManager.setTestProviderEnabled(provider, true)
 
-           val mockLocation = Location(provider).apply {
+            val mockLocation = Location(provider).apply {
                latitude = lat
                longitude = lon
-               accuracy = 1.0f
+               accuracy = 2.0f
+               altitude = 12.5
+               speed = 0f
+               bearing = 0f
                time = System.currentTimeMillis()
                elapsedRealtimeNanos = SystemClock.elapsedRealtimeNanos()
-           }
+            }
+            //Log.i("GpsClientService", "Mock location - lat:$lat lon:$lon")
+            locationManager.setTestProviderLocation(provider, mockLocation)
 
-           locationManager.setTestProviderLocation(provider, mockLocation)
 
-           sendLog(applicationContext, "GPS:$lat,$lon")
+            sendLog(applicationContext, "GPS:$lat,$lon")
 
          } catch (e: SecurityException) {
             sendLog(applicationContext, "❌ Mocking failed: ${e.message}")
          } catch (e: Exception) {
-           sendLog(applicationContext, "❌ Error mocking: ${e.message}")
+            sendLog(applicationContext, "❌ Error mocking: ${e.message}")
          }
     }
 }

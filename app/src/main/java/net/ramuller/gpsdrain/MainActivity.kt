@@ -65,6 +65,7 @@ import java.net.Inet4Address
 import java.net.InetSocketAddress
 import java.net.Socket
 import kotlin.text.get
+import net.ramuller.gpsdrain.BuildConfig
 
 lateinit var appContext: Context
 
@@ -255,6 +256,15 @@ fun GPSDrain(
     }
 
     Column(modifier = Modifier.fillMaxSize().padding(12.dp)) {
+        // Info
+        Text(
+            text = "\nSoftware version: ${BuildConfig.VERSION_NAME}",
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 8.dp)
+                // .padding(vertical = 8.dp)
+                // .heightIn(min = 12.dp)
+        )
         LazyColumn(
             state = listState,
             modifier = Modifier
@@ -264,7 +274,7 @@ fun GPSDrain(
                 .padding(8.dp)
         ) {
             item {
-                Text("Log Output:", style = MaterialTheme.typography.titleMedium)
+                Text("Log output:", style = MaterialTheme.typography.titleMedium)
             }
             items(logMessages.size) { index ->
                 Text(logMessages[index], style = MaterialTheme.typography.bodySmall)
@@ -272,7 +282,6 @@ fun GPSDrain(
         }
 
         Spacer(modifier = Modifier.height(8.dp))
-
         // Config Area
         Column(modifier = Modifier.weight(1f)) {
             OutlinedTextField(
@@ -399,6 +408,7 @@ fun GPSDrain(
         }
     }
 }
+
 
 private fun Intent.getStringExtra(value: Any) {}
 
